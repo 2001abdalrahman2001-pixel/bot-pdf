@@ -2,8 +2,11 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from PIL import Image
 import os
+import asyncio
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
 
-TOKEN = "8727128674:AAG3x0xrayvNI2-WnFhJ84qdCitCCVi6l0o"
+TOKEN = "8658089098:AAFXd7PwODPgy5fHVNSzaPsvQWyLGIKxwmo"
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photos = update.message.photo
@@ -24,9 +27,31 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     os.remove(file_path)
     os.remove(pdf_path)
 
-# ✅ تشغيل البوت مباشرة
-if __name__ == "__main__":
+# تشغيل البوت
+def run_bot():
     application = Application.builder().token(TOKEN).build()
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    print("✅ البوت يعمل...")
+    print("✅ Bot is running...")
     application.run_polling()
+
+# خادم HTTP بسيط لـ health check
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+def run_http():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), HealthHandler)
+    print(f"✅ HTTP server running on port {port}")
+    server.serve_forever()
+
+# تشغيل كل شيء معاً
+if __name__ == "__main__":
+    # تشغيل HTTP server في thread منفصل
+    http_thread = threading.Thread(target=run_http, daemon=True)
+    http_thread.start()
+    
+    # تشغيل البوت في thread الرئيسي
+    run_bot()
