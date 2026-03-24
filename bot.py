@@ -3,7 +3,7 @@ from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTyp
 from PIL import Image
 import os
 
-TOKEN = "8629476476:AAEe6mVzZcSolnv4VyIA1XMVlcK_fHB_hRk"
+TOKEN = "8629476476:AAFZhdoIs4_ak__SM5cFr02mlzKPsovZA48"
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photos = update.message.photo
