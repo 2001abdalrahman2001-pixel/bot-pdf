@@ -31,24 +31,40 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 application = Application.builder().token(TOKEN).build()
 application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
-# بدء التطبيق باستخدام webhook
-async def start_webhook():
+# تشغيل البوت باستخدام webhook
+async def main():
     await application.initialize()
     await application.start()
+    
+    # الحصول على المنفذ من Render
+    port = int(os.environ.get("PORT", 10000))
+    
+    # بدء webhook
     await application.updater.start_webhook(
         listen="0.0.0.0",
-        port=int(os.environ.get("PORT", 10000)),
+        port=port,
         url_path=TOKEN,
         webhook_url=f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'localhost')}/{TOKEN}"
     )
-    return application
+    
+    # انتظار إلى الأبد
+    await asyncio.Event().wait()
 
 # تشغيل البوت
-loop = asyncio.new_event_loop()
-asyncio.set_event_loop(loop)
-loop.run_until_complete(start_webhook())
-
-# ✅ WSGI app لـ Gunicorn
-def app(environ, start_response):
-    start_response('200 OK', [('Content-Type', 'text/plain')])
-    return [b'Bot is running']
+if __name__ == "__main__":
+    asyncio.run(main())
+else:
+    # هذا الجزء مهم لـ Gunicorn
+    import asyncio
+    import threading
+    
+    def run_bot():
+        asyncio.run(main())
+    
+    thread = threading.Thread(target=run_bot, daemon=True)
+    thread.start()
+    
+    # WSGI app لـ Gunicorn
+    def app(environ, start_response):
+        start_response('200 OK', [('Content-Type', 'text/plain')])
+        return [b'Bot is running']
