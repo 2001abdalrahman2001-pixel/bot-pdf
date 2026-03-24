@@ -1,57 +1,45 @@
-from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
-from PIL import Image
 import os
+import logging
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from PIL import Image
 import asyncio
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
 
 TOKEN = "8658089098:AAFXd7PwODPgy5fHVNSzaPsvQWyLGIKxwmo"
 
-async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    photos = update.message.photo
-    if not photos:
-        return
+logging.basicConfig(level=logging.INFO)
 
-    photo = photos[-1]
-    file = await photo.get_file()
-    file_path = "image.jpg"
-    await file.download_to_drive(file_path)
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("أرسل صورة لتحويلها PDF")
 
-    image = Image.open(file_path)
-    pdf_path = "output.pdf"
-    image.convert("RGB").save(pdf_path)
+async def convert(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.photo:
+        file = await update.message.photo[-1].get_file()
+        await file.download_to_drive("img.jpg")
 
-    await update.message.reply_document(document=open(pdf_path, "rb"))
+        img = Image.open("img.jpg")
+        img.save("file.pdf", "PDF")
 
-    os.remove(file_path)
-    os.remove(pdf_path)
+        await update.message.reply_document(open("file.pdf", "rb"))
 
-# تشغيل البوت
-def run_bot():
-    application = Application.builder().token(TOKEN).build()
-    application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    print("✅ Bot is running...")
-    application.run_polling()
+async def main():
+    app = ApplicationBuilder().token(TOKEN).build()
 
-# خادم HTTP بسيط لـ health check
-class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"OK")
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.PHOTO, convert))
 
-def run_http():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), HealthHandler)
-    print(f"✅ HTTP server running on port {port}")
-    server.serve_forever()
+    PORT = int(os.environ.get("PORT", 10000))
+    URL = os.environ.get("RENDER_EXTERNAL_URL")
 
-# تشغيل كل شيء معاً
+    # ضبط webhook
+    await app.bot.set_webhook(f"{URL}/webhook")
+
+    # تشغيل السيرفر
+    await app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path="webhook"
+    )
+
 if __name__ == "__main__":
-    # تشغيل HTTP server في thread منفصل
-    http_thread = threading.Thread(target=run_http, daemon=True)
-    http_thread.start()
-    
-    # تشغيل البوت في thread الرئيسي
-    run_bot()
+    asyncio.run(main())
