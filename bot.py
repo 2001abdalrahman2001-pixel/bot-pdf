@@ -31,23 +31,24 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 application = Application.builder().token(TOKEN).build()
 application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
-# ✅ إنشاء كائن WSGI لـ Gunicorn
-# هذا الكائن يقوم بتشغيل البوت عند استدعائه
-class BotWSGI:
-    def __init__(self):
-        self.app = application
-        
-    def __call__(self, environ, start_response):
-        # تشغيل البوت في الخلفية إذا لم يكن يعمل
-        if not hasattr(self, '_running'):
-            self._running = True
-            # بدء polling أو webhook حسب الإعداد
-            asyncio.create_task(self.app.initialize())
-            asyncio.create_task(self.app.start())
-        
-        # إرجاع استجابة بسيطة للـ health check
-        start_response('200 OK', [('Content-Type', 'text/plain')])
-        return [b'Bot is running']
+# بدء التطبيق باستخدام webhook
+async def start_webhook():
+    await application.initialize()
+    await application.start()
+    await application.updater.start_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000)),
+        url_path=TOKEN,
+        webhook_url=f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'localhost')}/{TOKEN}"
+    )
+    return application
 
-# الكائن المطلوب من Gunicorn
-app = BotWSGI()
+# تشغيل البوت
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+loop.run_until_complete(start_webhook())
+
+# ✅ WSGI app لـ Gunicorn
+def app(environ, start_response):
+    start_response('200 OK', [('Content-Type', 'text/plain')])
+    return [b'Bot is running']
