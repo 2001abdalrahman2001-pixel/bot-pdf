@@ -1,5 +1,5 @@
 from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from PIL import Image
 import os
 
@@ -30,13 +30,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     os.remove(file_path)
     os.remove(pdf_path)
 
-def main():
-    app = ApplicationBuilder().token(TOKEN).build()
+# ✅ إنشاء التطبيق مباشرة (بدون دالة main)
+application = Application.builder().token(TOKEN).build()
+application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-
-    print("Bot is running...")
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
+# ✅ هذا السطر مهم جداً - يعرض التطبيق لـ Render/Anywhere بدون polling
+app = application
